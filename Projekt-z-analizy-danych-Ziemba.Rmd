@@ -1,0 +1,157 @@
+---
+title: "Projekt z analizy danych"
+author: "Kamila Ziemba"
+date: "26 listopada 2017"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    toc_depth: 2
+  
+
+---
+
+```{r setup, include=FALSE,echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library('knitr')
+library(ggplot2)
+library(dplyr)
+library(dprep)
+library(plotly)
+
+```
+
+```{r zaladowanie danych, echo=FALSE, cache=TRUE}
+ladujdane <- read.csv("C:/Users/Kamila/Documents/Projekt-z-analizy-danych/elektrownie.csv")
+dane = data.frame(ladujdane)
+```
+# Wyświetlanie zbioru
+```{r wysw, echo=FALSE}
+dane
+```
+
+# Sekcję podsumowująca rozmiar zbioru i podstawowe statystyki
+```{r dee, echo=FALSE}
+summary(dane)
+dim(dane)
+```
+
+# Przetwarzenie brakujących danych
+```{r kwh, echo=FALSE, cache=TRUE}
+
+srednia = mean(dane$kwh)
+dane<-mutate(dane,kwh = ifelse(kwh == 0, srednia, kwh))
+
+```
+
+
+```{r irri, echo=FALSE, cache=TRUE}
+srednia = mean(dane$irri_pvgis_mod)
+dane<-mutate(dane,irri_pvgis_mod = ifelse(irri_pvgis_mod == 0, srednia, irri_pvgis_mod))
+
+srednia = mean(dane$irr_pvgis_mod)
+dane<-mutate(dane,irr_pvgis_mod= ifelse(irr_pvgis_mod == 0, srednia, irr_pvgis_mod))
+
+srednia = mean(dane$pcnm15)
+dane<-mutate(dane,pcnm15= ifelse(pcnm15 == 0, srednia, pcnm15))
+
+srednia = mean(dane$pcnm14)
+dane<-mutate(dane,pcnm14= ifelse(pcnm14 == 0, srednia, pcnm14))
+
+srednia = mean(dane$pcnm13)
+dane<-mutate(dane,pcnm13= ifelse(pcnm13== 0, srednia, pcnm13))
+
+srednia = mean(dane$pcnm12)
+dane<-mutate(dane,pcnm12= ifelse(pcnm12 == 0, srednia, pcnm12))
+
+srednia = mean(dane$pcnm11)
+dane<-mutate(dane,pcnm11= ifelse(pcnm11 == 0, srednia, pcnm11))
+
+srednia = mean(dane$pcnm10)
+dane<-mutate(dane,pcnm10= ifelse(pcnm10 == 0, srednia, pcnm10))
+
+srednia = mean(dane$pcnm9)
+dane<-mutate(dane,pcnm9= ifelse(pcnm9 == 0, srednia, pcnm9))
+
+srednia = mean(dane$pcnm8)
+dane<-mutate(dane,pcnm8= ifelse(pcnm8 == 0, srednia, pcnm8))
+
+srednia = mean(dane$pcnm7)
+dane<-mutate(dane,pcnm7= ifelse(pcnm7 == 0, srednia, pcnm7))
+
+srednia = mean(dane$pcnm6)
+dane<-mutate(dane,pcnm6= ifelse(pcnm6 == 0, srednia, pcnm6))
+
+srednia = mean(dane$pcnm5)
+dane<-mutate(dane,pcnm5= ifelse(pcnm5 == 0, srednia, pcnm5))
+
+srednia = mean(dane$pcnm4)
+dane<-mutate(dane,pcnm4= ifelse(pcnm4 == 0, srednia, pcnm4))
+
+srednia = mean(dane$pcnm3)
+dane<-mutate(dane,pcnm3= ifelse(pcnm3 == 0, srednia, pcnm3))
+
+srednia = mean(dane$pcnm2)
+dane<-mutate(dane,pcnm2= ifelse(pcnm2 == 0, srednia, pcnm2))
+
+srednia = mean(dane$pcnm1)
+dane<-mutate(dane,pcnm1= ifelse(pcnm1 == 0, srednia, pcnm1))
+
+srednia = mean(dane$altitudei)
+dane<-mutate(dane,altitudei= ifelse(altitudei == 0, srednia, altitudei))
+
+srednia = mean(dane$altitude)
+dane<-mutate(dane,altitude= ifelse(altitude== 0, srednia, altitude))
+
+srednia = mean(dane$dist)
+dane<-mutate(dane,dist= ifelse(dist == 0, srednia, dist))
+
+srednia = mean(dane$cloudcoveri)
+dane<-mutate(dane,cloudcoveri= ifelse(cloudcoveri == 0, srednia,cloudcoveri))
+
+srednia = mean(dane$windbearingi)
+dane<-mutate(dane,windbearingi= ifelse(windbearingi== 0, srednia,windbearingi))
+
+srednia = mean(dane$dewpointi)
+dane<-mutate(dane,dewpointi= ifelse(dewpointi == 0, srednia,dewpointi))
+
+srednia = mean(dane$humidityi)
+dane<-mutate(dane,humidityi= ifelse(humidityi == 0, srednia,humidityi))
+
+srednia = mean(dane$cloudcover)
+dane<-mutate(dane,cloudcover= ifelse(cloudcover == 0, srednia,cloudcover))
+
+srednia = mean(dane$windbearing)
+dane<-mutate(dane,windbearing= ifelse(windbearing== 0, srednia,windbearing))
+
+srednia = mean(dane$dewpoint)
+dane<-mutate(dane,dewpoint= ifelse(dewpoint == 0,srednia,dewpoint))
+
+srednia = mean(dane$icon)
+dane<-mutate(dane,icon= ifelse(icon == 0, srednia,icon))
+
+srednia = mean(dane$humidity)
+dane<-mutate(dane,humidity= ifelse(humidity == 0, srednia,humidity))
+
+srednia = mean(dane$windspeed)
+dane<-mutate(dane,windspeed= ifelse(windspeed == 0, srednia,windspeed))
+
+srednia = mean(dane$pressure)
+dane<-mutate(dane,pressure= ifelse(pressure== 0, srednia,pressure))
+
+summary(dane)
+```
+
+
+
+# Interaktywny wykres prezentującą zmianę wytwarzanej energii w czasie i przestrzeni
+```{r Wykres, echo=FALSE}
+wykres <- ggplot(
+     dane, 
+     aes(x=data, 
+         y=kwh, color = factor(kwh))
+ ) + facet_grid(altitude ~ azimuth ) + ggtitle("Titanic Survivors") + theme_bw() +
+     geom_point() 
+wykres
+
+```
