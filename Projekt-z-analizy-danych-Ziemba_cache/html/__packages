@@ -4,3 +4,6 @@ ggplot2
 dplyr
 dprep
 bindrcpp
+plotly
+shiny
+highcharter

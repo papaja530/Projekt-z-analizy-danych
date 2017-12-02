@@ -1,51 +1,59 @@
 ---
 title: "Projekt z analizy danych"
-author: "Kamila Ziemba"
-date: "26 listopada 2017"
+author: Kamila Ziemba
+subtitle: "Politechnika Poznańska"
+
+date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
-  html_document:
+  prettydoc::html_pretty:
+    
+    theme: hpstr
+    highlight: github
     df_print: paged
     toc: true
     toc_depth: 2
-  
+    css: czcionka.css
+    
+
+
 
 ---
+#Podsumowanie analizy
+Lalalala
+
 
 ```{r setup, include=FALSE,echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+##Kod pokazujący wykorzystane biblioteki
+```{r biblio}
 library('knitr')
 library(ggplot2)
 library(dplyr)
 library(dprep)
 library(plotly)
+library("highcharter")
 
 ```
-
-```{r zaladowanie danych, echo=FALSE, cache=TRUE}
+##Kod pozwalający wczytać dane z pliku
+```{r zaladowanie danych, include=FALSE}
 ladujdane <- read.csv("C:/Users/Kamila/Documents/Projekt-z-analizy-danych/elektrownie.csv")
-dane = data.frame(ladujdane)
-```
-# Wyświetlanie zbioru
-```{r wysw, echo=FALSE}
+dane <- data.frame(ladujdane)
 dane
+
 ```
 
-# Sekcję podsumowująca rozmiar zbioru i podstawowe statystyki
-```{r dee, echo=FALSE}
-summary(dane)
-dim(dane)
-```
 
-# Przetwarzenie brakujących danych
-```{r kwh, echo=FALSE, cache=TRUE}
+## Kod przetwarzający brakujące dane
+
+```{r przetwarzanie}
 
 srednia = mean(dane$kwh)
 dane<-mutate(dane,kwh = ifelse(kwh == 0, srednia, kwh))
 
-```
-
-
-```{r irri, echo=FALSE, cache=TRUE}
 srednia = mean(dane$irri_pvgis_mod)
 dane<-mutate(dane,irri_pvgis_mod = ifelse(irri_pvgis_mod == 0, srednia, irri_pvgis_mod))
 
@@ -139,19 +147,90 @@ dane<-mutate(dane,windspeed= ifelse(windspeed == 0, srednia,windspeed))
 srednia = mean(dane$pressure)
 dane<-mutate(dane,pressure= ifelse(pressure== 0, srednia,pressure))
 
+
+```
+# Sekcję podsumowująca rozmiar zbioru i podstawowe statystyki
+Rozmiar zbioru:
+```{r rozmiar, echo=FALSE}
+dim(dane)
+```
+Podstawowe statystyki:
+```{r staty, echo=FALSE}
 summary(dane)
+nrow(dane)
+ncol(dane)
 ```
 
 
+
+#Szczegółową analizę wartości atrybutów (np. poprzez prezentację rozkładów wartości).
+```{r rozklad, echo=FALSE}
+
+```
+
+
+
+#Szczegółową analizę wartości atrybutów
+##Temperatura  i kwh
+```{r Wykrestemp, echo=FALSE}
+library("highcharter")
+library(dplyr)
+dane <- group_by(dane,data)
+hc <- highchart() %>% 
+  hc_title(text = "Wykres temperatury") %>% 
+  hc_add_series(name = "kwh",data = dane$kwh[5000:10000]) %>% 
+  hc_add_series(data = dane$temperatura_ambiente[5000:10000], color = "#1A237E",name = "temperatura_ambiente")  %>% 
+ hc_xAxis(categories = dane$data)
+
+
+hc
+
+
+```
+
+##Wilgotnosc i kwh
+```{r Wykreswilgotnosc, echo=FALSE}
+library("highcharter")
+library(dplyr)
+dane <- group_by(dane,data)
+hc <- highchart() %>% 
+  hc_title(text = "Wykres wilgotności") %>% 
+  hc_add_series(name = "kwh",data = dane$kwh[1:10]) %>% 
+  hc_add_series(data = dane$humidity[1:10],name = "humidity")  %>% 
+ hc_xAxis(categories = dane$data)
+
+
+hc
+
+
+```
+
+#Wykres slupkowy wedlug lat kwh
+```{r kwhwykres, echo=FALSE}
+library("highcharter")
+library(dplyr)
+
+wykres <-summarize(group_by(dane,anno), energia=sum(kwh,na.rm=TRUE))
+hc <- highchart() %>% 
+  hc_title(text = "Wykres kwh w przeciągu lat") %>% 
+  hc_add_series(name = "kwh",wykres$energia, type = "column", color = "#197c7e") %>% 
+
+ hc_xAxis(categories = wykres$anno)
+
+
+hc
+
+wykres <-summarize(group_by(dane,day), energia=sum(kwh,na.rm=TRUE))
+hc <- highchart() %>% 
+  hc_title(text = "Wykres kwh w przeciągu dni") %>% 
+  hc_add_series(name = "kwh",wykres$energia, type = "column", color = "#197c7e") %>% 
+
+ hc_xAxis(categories = wykres$day)
+
+
+hc
+
+
+```
 
 # Interaktywny wykres prezentującą zmianę wytwarzanej energii w czasie i przestrzeni
-```{r Wykres, echo=FALSE}
-wykres <- ggplot(
-     dane, 
-     aes(x=data, 
-         y=kwh, color = factor(kwh))
- ) + facet_grid(altitude ~ azimuth ) + ggtitle("Titanic Survivors") + theme_bw() +
-     geom_point() 
-wykres
-
-```
