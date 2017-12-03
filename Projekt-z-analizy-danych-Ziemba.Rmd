@@ -13,11 +13,14 @@ output:
     toc: true
     toc_depth: 2
     css: czcionka.css
-    
+
 
 
 
 ---
+
+
+
 #Podsumowanie analizy
 Lalalala
 
@@ -29,26 +32,33 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ##Kod pokazujący wykorzystane biblioteki
-```{r biblio}
+```{r biblio, message=FALSE}
 library('knitr')
 library(ggplot2)
 library(dplyr)
 library(dprep)
 library(plotly)
 library("highcharter")
-
+library(png)
+library(grid)
 ```
+
+
 ##Kod pozwalający wczytać dane z pliku
-```{r zaladowanie danych, include=FALSE}
+```{r zaladowanie danych}
 ladujdane <- read.csv("C:/Users/Kamila/Documents/Projekt-z-analizy-danych/elektrownie.csv")
 dane <- data.frame(ladujdane)
-dane
+head(dane)
+
+```
+```{r zalado}
+head(dane)
+
 
 ```
 
-
 ## Kod przetwarzający brakujące dane
-
+W ramach kompletacji zbioru danych brakujące warotości uzupełniono na podstawie średniej z dostępnych danych. W niektórych atrubutach zostawiono brakujące wartości m.in. lat, lon, idmodel, day.
 ```{r przetwarzanie}
 
 srednia = mean(dane$kwh)
@@ -150,24 +160,62 @@ dane<-mutate(dane,pressure= ifelse(pressure== 0, srednia,pressure))
 
 ```
 # Sekcję podsumowująca rozmiar zbioru i podstawowe statystyki
-Rozmiar zbioru:
+Rozmiar zbioru liczba wierszy oraz kolumn:
 ```{r rozmiar, echo=FALSE}
 dim(dane)
 ```
+
 Podstawowe statystyki:
 ```{r staty, echo=FALSE}
 summary(dane)
-nrow(dane)
-ncol(dane)
 ```
 
 
 
-#Szczegółową analizę wartości atrybutów (np. poprzez prezentację rozkładów wartości).
-```{r rozklad, echo=FALSE}
+#Wygląd zbioru danych
+```{r rozklad, message=FALSE, include=FALSE}
+
+dane
+```
+#Współrzędne geograficzne paneli
+Panele fotowoltaiczne współrzędne geograficzne lokazlizacje:
+```{r wspolrz,echo=FALSE}
+ wspolrz <- cbind((dane$lat)*100, (dane$lon)*100)
+colnames(wspolrz) <- c("lat", "lon")
+ unique(wspolrz)
+```
+
+
+Po graficznej analizie współrzędnych geograficznych zauważono, że lokalizacja  paneli znajduje się nie we Włoszech tylko w Uzbekistanie oraz Kazachstanie.
+```{r echo=FALSE}
+library(png)
+library(grid)
+img <- readPNG("C:/Users/Kamila/Documents/Projekt-z-analizy-danych/wspolrz.png")
+ grid.raster(img)
+```
+
+W ramach analizy wykorzystano https://www.wspolrzedne-gps.pl/
+```{r echo=FALSE}
+library(png)
+library(grid)
+imgg <- readPNG("C:/Users/Kamila/Documents/Projekt-z-analizy-danych/wspolrz1.png")
+ grid.raster(imgg)
 
 ```
 
+W zbiorze danych znajduje się 14 lokalizacji.
+```{r echo=FALSE}
+library(png)
+library(grid)
+imggg <- readPNG("C:/Users/Kamila/Documents/Projekt-z-analizy-danych/wspolrz2.png")
+ grid.raster(imggg)
+
+```
+
+Oraz 17 paneli fotowoltaicznych:
+```{r panele ,echo=FALSE}
+unique(dane$idsito)
+```
 
 
 #Szczegółową analizę wartości atrybutów
@@ -178,8 +226,8 @@ library(dplyr)
 dane <- group_by(dane,data)
 hc <- highchart() %>% 
   hc_title(text = "Wykres temperatury") %>% 
-  hc_add_series(name = "kwh",data = dane$kwh[5000:10000]) %>% 
-  hc_add_series(data = dane$temperatura_ambiente[5000:10000], color = "#1A237E",name = "temperatura_ambiente")  %>% 
+  hc_add_series(name = "kwh",data = dane$kwh[1:100],color ="#2bdbd2",type = "column") %>% 
+  hc_add_series(data = dane$temperatura_ambiente[1:100], color = "#1A237E",name = "temperatura_ambiente")  %>% 
  hc_xAxis(categories = dane$data)
 
 
@@ -195,8 +243,8 @@ library(dplyr)
 dane <- group_by(dane,data)
 hc <- highchart() %>% 
   hc_title(text = "Wykres wilgotności") %>% 
-  hc_add_series(name = "kwh",data = dane$kwh[1:10]) %>% 
-  hc_add_series(data = dane$humidity[1:10],name = "humidity")  %>% 
+  hc_add_series(name = "kwh",data = dane$kwh[1:1000],color = "#2bdbd2",type = "column") %>% 
+  hc_add_series(data = dane$humidity[1:1000],name = "humidity",color = "#f42ebf")  %>% 
  hc_xAxis(categories = dane$data)
 
 
@@ -204,6 +252,25 @@ hc
 
 
 ```
+
+
+##Wiatr i kwh
+```{r Wykreswiatr, echo=FALSE}
+library("highcharter")
+library(dplyr)
+dane <- group_by(dane,data)
+hc <- highchart() %>% 
+  hc_title(text = "Wykres wiatru") %>% 
+  hc_add_series(name = "kwh",data = dane$kwh[1:1000],color="#2bdbd2", type = "column") %>% 
+  hc_add_series(data = dane$windspeed[1:1000],name = "windspeed", color="#f42ebf")  %>% 
+ hc_xAxis(categories = dane$data)
+
+
+hc
+
+
+```
+
 
 #Wykres slupkowy wedlug lat kwh
 ```{r kwhwykres, echo=FALSE}
@@ -213,23 +280,12 @@ library(dplyr)
 wykres <-summarize(group_by(dane,anno), energia=sum(kwh,na.rm=TRUE))
 hc <- highchart() %>% 
   hc_title(text = "Wykres kwh w przeciągu lat") %>% 
-  hc_add_series(name = "kwh",wykres$energia, type = "column", color = "#197c7e") %>% 
+  hc_add_series(name = "kwh",wykres$energia, type = "column", color = "#2bdbd2") %>% 
 
  hc_xAxis(categories = wykres$anno)
 
 
 hc
-
-wykres <-summarize(group_by(dane,day), energia=sum(kwh,na.rm=TRUE))
-hc <- highchart() %>% 
-  hc_title(text = "Wykres kwh w przeciągu dni") %>% 
-  hc_add_series(name = "kwh",wykres$energia, type = "column", color = "#197c7e") %>% 
-
- hc_xAxis(categories = wykres$day)
-
-
-hc
-
 
 ```
 
