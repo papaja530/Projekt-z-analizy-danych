@@ -38,6 +38,7 @@ library(plotly)
 library("highcharter")
 library(png)
 library(grid)
+library(purrr)
 ```
 
 
@@ -51,7 +52,7 @@ dane <- data.frame(ladujdane)
 
 
 ## Kod przetwarzający brakujące dane
-W ramach kompletacji zbioru danych brakujące warotości uzupełniono na podstawie średniej z dostępnych danych. W niektórych atrubutach zostawiono brakujące wartości m.in. lat, lon, idmodel, day.
+W ramach kompletacji zbioru danych brakujące warotości uzupełniono na podstawie średniej z dostępnych danych. W niektórych atrubutach zostawiono brakujące wartości m.in. lat, lon, idmodel, day, data.
 ```{r przetwarzanie, cache=TRUE}
 
 srednia = mean(dane$kwh)
@@ -153,20 +154,20 @@ dane<-mutate(dane,pressure= ifelse(pressure== 0, srednia,pressure))
 
 ```
 # Sekcję podsumowująca rozmiar zbioru i podstawowe statystyki
-Rozmiar zbioru liczba wierszy oraz kolumn:
+##Rozmiar zbioru liczba wierszy oraz kolumn:
 ```{r rozmiar, echo=FALSE}
 dim(dane)
 ```
 
-Podstawowe statystyki:
+##Podstawowe statystyki:
 ```{r staty, echo=FALSE}
 summary(dane)
 ```
 
 
 
-#Wygląd zbioru danych
-```{r }
+##Wygląd zbioru danych
+```{r echo=FALSE}
 
 dane
 ```
@@ -178,7 +179,7 @@ colnames(wspolrz) <- c("lat", "lon")
  unique(wspolrz)
 ```
 
-
+##Mapy współrzędnych geograficznych
 Po graficznej analizie współrzędnych geograficznych zauważono, że lokalizacja  paneli znajduje się nie we Włoszech tylko w Uzbekistanie oraz Kazachstanie.
 ```{r echo=FALSE}
 library(png)
@@ -187,16 +188,44 @@ img <- readPNG("C:/Users/Kamila/Documents/Projekt-z-analizy-danych/wspolrz.png")
  grid.raster(img)
 ```
 
-W ramach analizy wykorzystano https://www.wspolrzedne-gps.pl/
+W ramach analizy wykorzystano https://www.wspolrzedne-gps.pl/ oraz https://www.highcharts.com/
+W zbiorze danych znajduje się 14 lokalizacji.
 ```{r echo=FALSE}
 library(png)
 library(grid)
 imgg <- readPNG("C:/Users/Kamila/Documents/Projekt-z-analizy-danych/wspolrz1.png")
  grid.raster(imgg)
+ 
+ 
+library(highcharter)
+library(dplyr)
+library(purrr)
+
+
+
+n <- 10
+z <-  sample(1:n)
+sequences <- map2(1:n, z, function(x, y){ ifelse(x == 1:n, y, 0) })
+
+df <- data_frame(
+  lat = runif(n, 43.7, 55.3),
+  lon = runif(n, 58.5, 63.1),
+  z = z,
+  color = colorize(z),
+  sequence = sequences
+)
+hcmap() %>% 
+  hc_add_series(data = df , type = "mapbubble",
+                minSize = 0, maxSize = 30) %>% 
+  hc_motion(enabled = TRUE , series = 1, labels = 1:n,
+            loop =  TRUE, autoPlay = TRUE, 
+            updateInterval = 1000, 
+            magnet = list(step =  1)) %>% 
+  hc_plotOptions(series = list(showInLegend = FALSE))
 
 ```
 
-W zbiorze danych znajduje się 14 lokalizacji.
+Obszar czujników zaznaczono na mapie względem współrzędnych geograficznych.
 ```{r echo=FALSE}
 library(png)
 library(grid)
@@ -211,9 +240,14 @@ unique(dane$idsito)
 ```
 
 
-#Szczegółową analizę wartości atrybutów
+
+
+
+
+# Wykresy prezentującą zmianę wytwarzanej energii w czasie i przestrzeni oraz szczegółowa analiza wartości atrybutów
+
 ##Wykres słupkowy wytwarzanej energii kwh w ciągu lat
-```{r kwhwykres, echo=FALSE}
+```{r kwhhwykres, echo=FALSE}
 library("highcharter")
 library(dplyr)
 
@@ -221,16 +255,36 @@ wykres <-summarize(group_by(dane,anno), energia=sum(kwh,na.rm=TRUE))
 hc <- highchart() %>% 
   hc_title(text = "Wykres wytwarzanej energii kwh w przeciągu lat") %>% 
   hc_add_series(name = "kwh",wykres$energia, type = "column", color = "#2bdbd2") %>% 
-
- hc_xAxis(categories = wykres$anno)
+hc_yAxis(title = list(text = "Energia"))%>% 
+ hc_xAxis(categories = wykres$anno,title=list(text = "Rok"))
 
 
 hc
 
 ```
+W roku 2013 wyprodukowano więcej energii.
 
-##Wykres słupkowy wytwarznej energii kwh wedlug paneli
-```{r kwhwykreslok, echo=FALSE}
+##Wykres wytwarzania energi w przeciągu godzin.
+```{r ykres, echo=FALSE}
+library("highcharter")
+library(dplyr)
+
+wykres <-summarize(group_by(dane,ora), energia=sum(kwh,na.rm=TRUE))
+hc <- highchart() %>% 
+  hc_title(text = "Wykres wytwarzanej energii kwh w ciągu dnia") %>% 
+  hc_add_series(name = "kwh",wykres$energia, type = "column", color = "#2bdbd2") %>% 
+hc_yAxis(title = list(text = "Energia"))%>% 
+ hc_xAxis(categories = wykres$ora,title=list(text = "Godzina"))
+
+
+hc %>%  hc_add_theme(hc_theme_tufte2())
+
+```
+Można zauważyć fakt, że ciągu nocy wytwarzania energii jest znacznie mniej niż podczas dnia(słońce nie świeci).
+
+
+##Wykres słupkowy wytwarznej energii kwh według paneli
+```{r kwhwykreeslok, echo=FALSE}
 library("highcharter")
 library(dplyr)
 
@@ -238,67 +292,80 @@ wykres <-summarize(group_by(dane,idsito), energia=sum(kwh,na.rm=TRUE))
 hc <- highchart() %>% 
   hc_title(text = "Wykres wytwarzanej energii kwh w różnych panelach") %>% 
   hc_add_series(name = "kwh",wykres$energia, type = "column", color = "#2bdbd2") %>% 
+   hc_yAxis(title = list(text = "Energia"))%>% 
+ hc_xAxis(categories = wykres$idsito, title=list(text = "IDPanelu"))
 
- hc_xAxis(categories = wykres$idsito)
+
+hc %>%  hc_add_theme(hc_theme_tufte2())
+
+```
+Panel o ID równym 0.25 zdecydowanie przewyższa pozostałe, na najniższym szczeblu jest panel o ID równym 0.
+
+
+##Wykres słupkowy wytwarzanej energii kwh w ciągu lat dla paneli
+```{r kwhwykres, echo=FALSE}
+library("highcharter")
+library(dplyr)
+wykress <-filter(dane, anno==2012)
+wykres <-summarize(group_by(wykress,idsito,anno), energia=sum(kwh,na.rm=TRUE))
+wykresss <-filter(dane, anno==2013)
+wykresa <-summarize(group_by(wykresss,idsito,anno), energia=sum(kwh,na.rm=TRUE))
+hc <- highchart() %>% 
+  hc_title(text = "Wykres wytwarzanej energii kwh na przełomie lat dla poszczególnych paneli") %>% 
+  hc_add_series(name = "kwh 2012",wykres$energia, type = "column", color = "#2bdbd2") %>% 
+  hc_add_series(name = "kwh 2013",wykresa$energia, type = "column", color = "#d80940") %>% 
+
+
+ hc_yAxis(title = list(text = "Energia"))%>% 
+ hc_xAxis(categories = wykres$idsito, title = list(text = "ID panelu"))
 
 
 hc
 
 ```
 
-##Wykres słupkowy wytwarznej energii kwh wedlug paneli godzinowo
+##Wykres słupkowy wytwarznej energii kwh według paneli godzinowo
 ```{r kwhwykreslokgodz, echo=FALSE}
 library("highcharter")
 library(dplyr)
 
-wykres <-summarize(group_by(dane,idsito,ora), energia=sum(kwh,na.rm=TRUE))
+wykres <-summarize(group_by(dane,ora, idsito), energia=sum(kwh,na.rm=TRUE))
 hc <- highchart() %>% 
   hc_title(text = "Wykres wytwarzanej energii kwh w różnych panelach") %>% 
   hc_add_series(name = "kwh",wykres$energia, type = "column", color = "#2bdbd2") %>% 
   hc_add_series(name = "idsito",wykres$idsito, color = "#041414") %>% 
- hc_xAxis(categories = wykres$ora)
+   hc_yAxis(title = list(text = "Energia"))%>% 
+ hc_xAxis(categories = wykres$ora, title=list(text = "Godzina"))
 
 
 hc
 
 ```
+Można zauważyć, że wykres posiada już więcej danych niż poprzednie, dla każdej godziny zobrazowano wytwarzanie energii dla poszczególnych paneli.
 
-##Wykres słupkowy wytwarznej energii kwh wedlug paneli dniowo
+
+##Wykres słupkowy wytwarznej energii kwh według paneli dniowo
 ```{r kwhwykreslokdzien, echo=FALSE}
 library("highcharter")
 library(dplyr)
 
-wykres <-summarize(group_by(dane,idsito,day), energia=sum(kwh,na.rm=TRUE))
+wykres <-summarize(group_by(dane,day,idsito), energia=sum(kwh,na.rm=TRUE))
 hc <- highchart() %>% 
-  hc_title(text = "Wykres wytwarzanej energii kwh w różnych panelach") %>% 
+  hc_title(text = "Wykres wytwarzanej energii kwh w różnych panelach dniowo") %>% 
   hc_add_series(name = "kwh",wykres$energia, type = "column", color = "#2bdbd2") %>% 
   hc_add_series(name = "idsito",wykres$idsito, color = "#041414") %>% 
- hc_xAxis(categories = wykres$day)
+   hc_yAxis(title = list(text = "Energia"))%>% 
+ hc_xAxis(categories = wykres$day, title = list(text = "Day"))
 
 
 hc
 
 ```
 
-##Wykres słupkowy wytwarzanej energii kwh w ciągu lat
-```{r kwhwykres, echo=FALSE}
-library("highcharter")
-library(dplyr)
-
-wykres <-summarize(group_by(dane,anno), energia=sum(kwh,na.rm=TRUE))
-hc <- highchart() %>% 
-  hc_title(text = "Wykres wytwarzanej energii kwh w przeciągu lat") %>% 
-  hc_add_series(name = "kwh",wykres$energia, type = "column", color = "#2bdbd2") %>% 
-
- hc_xAxis(categories = wykres$anno)
 
 
-hc
-
-```
-
-##Wykres słupkowy wytwarznej energii kwh wedlug szerokosci
-```{r kwhwykreslok, echo=FALSE}
+##Wykres słupkowy wytwarznej energii kwh według szerokości
+```{r kwhwykresllok, echo=FALSE}
 library("highcharter")
 library(dplyr)
 
@@ -306,44 +373,29 @@ wykres <-summarize(group_by(dane,lat,lon), energia=sum(kwh,na.rm=TRUE))
 hc <- highchart() %>% 
   hc_title(text = "Wykres wytwarzanej energii kwh w Latitude") %>% 
   hc_add_series(name = "kwh",wykres$energia, type = "column", color = "#2bdbd2") %>% 
- 
- hc_xAxis(categories = dane$lat)
+  hc_yAxis(title = list(text = "Energia"))%>% 
+ hc_xAxis(categories = dane$lat,title= list(text = "Szerokość"))
           
 
 
-hc
+hc %>%  hc_add_theme(hc_theme_tufte2())
 
 ```
 
+#Korelacja pomiędzy zmiennymi
+W ramach przejrzystości i dokładnej analizy danych wykresy utworzono po 100,200,1000 rekordów danych.
 
-##Temperatura  i kwh dniowo
-```{r Wp, echo=FALSE}
-library("highcharter")
-library(dplyr)
-wykres <-summarize(group_by(dane,day,humidity), energia=sum(kwh,na.rm=TRUE))
-
-
-hc <- highchart() %>% 
-  hc_title(text = "Wykres temperatury") %>% 
-  hc_add_series(name = "kwh",data = wykres$energia[1:1000],color ="#2bdbd2",type = "column") %>% 
-  hc_add_series(data = wykres$humidity[1:1000], color = "#1A237E",name = "humidity")  %>% 
- hc_xAxis(categories = wykres$day)
-
-
-hc
-
-
-```
-
-##Temperatura  i kwh
-```{r Wykrestemp, echo=FALSE}
+##Wykres wpływu wiatru i azymutu na wytwarzanie energii
+```{r Wykreswiatr, echo=FALSE}
 library("highcharter")
 library(dplyr)
 dane <- group_by(dane,data)
 hc <- highchart() %>% 
-  hc_title(text = "Wykres temperatury") %>% 
-  hc_add_series(name = "kwh",data = dane$kwh[200:300],color ="#2bdbd2",type = "column") %>% 
-  hc_add_series(data = dane$temperatura_ambiente[200:300], color = "#1A237E",name = "temperatura_ambiente")  %>% 
+  hc_title(text = "Wykres wiatru i azymutu") %>% 
+  hc_add_series(name = "kwh",data = dane$kwh[100:200],color="#2bdbd2", type = "column") %>% 
+  hc_add_series(data = dane$windspeed[100:200],name = "windspeed", color="#f42ebf")  %>% 
+      hc_add_series(data = dane$azimuth[100:200],name = "azimuth", color="#220550")  %>% 
+     hc_yAxis(title = list(text = "Energia"))%>% 
  hc_xAxis(categories = dane$data)
 
 
@@ -351,36 +403,37 @@ hc
 
 
 ```
+Wiatr ani azymut nie wpływają na energię kwh.
 
-##Zachmurzenie  i kwh
-```{r Wykrestemp, echo=FALSE}
+##Wykres wpływu wysokości i ciśnienia na pomiar energii
+```{r a, echo=FALSE}
 library("highcharter")
 library(dplyr)
-wykres <-summarize(group_by(dane,data,idsito,cloudcover), energia=sum(kwh,na.rm=TRUE))
+dane <- group_by(dane,data)
 hc <- highchart() %>% 
-  hc_title(text = "Wykres temperatury") %>% 
-  hc_add_series(name = "kwh",data = wykres$energia[450:500],color ="#2bdbd2",type = "column") %>% 
-  hc_add_series(data = wykres$cloudcover[450:500], color = "#1A237E",name = "cloudcover", type="column")  %>% 
-    hc_add_series(data = wykres$idsito[450:500], color = "#940ad8",name = "idsito")  %>% 
- hc_xAxis(categories = wykres$data)
+  hc_title(text = "Wykres ciśnienia i wysokości") %>% 
+  hc_add_series(name = "kwh",data = dane$kwh[100:200],color="#2bdbd2", type = "column") %>% 
+  hc_add_series(data = dane$altitude[100:200],name = "altitude", color="#f42ebf")  %>% 
+    hc_add_series(data = dane$pressure[100:200],name = "pressure", color="#220550")  %>% 
+     hc_yAxis(title = list(text = "Energia"))%>% 
+ hc_xAxis(categories = dane$data)
 
 
 hc
 
-
 ```
+Wysokość nie ma znaczenia, natomiast cinienie im niższe tym niższy pomiar kwh.
 
-
-
-##Wilgotnosc i kwh
+##Wykres wpływu wilgotności na wytwarzanie energii
 ```{r Wykreswilgotnosc, echo=FALSE}
 library("highcharter")
 library(dplyr)
 dane <- group_by(dane,data)
 hc <- highchart() %>% 
   hc_title(text = "Wykres wilgotności") %>% 
-  hc_add_series(name = "kwh",data = dane$kwh[1:1000],color = "#2bdbd2",type = "column") %>% 
-  hc_add_series(data = dane$humidity[1:1000],name = "humidity",color = "#f42ebf")  %>% 
+  hc_add_series(name = "kwh",data = dane$kwh[120:220],color = "#2bdbd2",type = "column") %>% 
+  hc_add_series(data = dane$humidity[120:220],name = "humidity",color = "#f42ebf")  %>% 
+     hc_yAxis(title = list(text = "Energia"))%>% 
  hc_xAxis(categories = dane$data)
 
 
@@ -388,17 +441,102 @@ hc
 
 
 ```
+Wysoka wilgotność zdecydowanie wpływa na mniejsze pobieranie energii.
+
+###Wilgotność  i kwh datowy dla jednego panelu
+```{r Wpp, echo=FALSE}
+library("highcharter")
+library(dplyr)
+wykress <-filter(dane, idsito==0.25)
+wykres <-summarize(group_by(wykress,data,humidity), energia=sum(kwh,na.rm=TRUE))
 
 
-##Wiatr i kwh
-```{r Wykreswiatr, echo=FALSE}
+hc <- highchart() %>% 
+  hc_title(text = "Wykres wilgotnosci dniowy dla panelu o ID 0.25") %>% 
+  hc_add_series(name = "kwh",data = wykres$energia[1500:1600],color ="#2bdbd2",type = "column") %>% 
+  hc_add_series(data = wykres$humidity[1500:1600], color = "#1A237E",name = "humidity")  %>% 
+   hc_yAxis(title = list(text = "Energia"))%>% 
+ hc_xAxis(categories = wykres$data, title=list(text = "Dzień"))
+
+
+hc
+
+
+```
+
+##Wykres wpływu temperatury na wytwarzanie energii
+```{r Wykresstemp, echo=FALSE}
 library("highcharter")
 library(dplyr)
 dane <- group_by(dane,data)
 hc <- highchart() %>% 
-  hc_title(text = "Wykres wiatru") %>% 
-  hc_add_series(name = "kwh",data = dane$kwh[1:1000],color="#2bdbd2", type = "column") %>% 
-  hc_add_series(data = dane$windspeed[1:1000],name = "windspeed", color="#f42ebf")  %>% 
+  hc_title(text = "Wykres temperatury") %>% 
+  hc_add_series(name = "kwh",data = dane$kwh[3050:3150],color ="#2bdbd2",type = "column") %>% 
+  hc_add_series(data = dane$temperatura_ambiente[3050:3150], color = "#1A237E",name = "temperatura_ambiente")  %>% 
+   hc_add_series(data = dane$irri[3050:3150],name = "irri",color = "#f42ebf")  %>% 
+     hc_yAxis(title = list(text = "Energia"))%>% 
+ hc_xAxis(categories = dane$data)
+
+
+
+hc
+
+
+```
+Wyższa temperatura wypływa na większe wytwarzanie energii przez panel.
+
+
+##Wykres wpływu zachmurzenia na wytwarzanie energii
+```{r Wykrestemp, echo=FALSE}
+library("highcharter")
+library(dplyr)
+wykres <-summarize(group_by(dane,data,cloudcover), energia=sum(kwh,na.rm=TRUE))
+hc <- highchart() %>% 
+  hc_title(text = "Wykres zachmurzenia") %>% 
+  hc_add_series(name = "kwh",data = wykres$energia[4550:4600],color ="#2bdbd2",type = "column") %>% 
+  hc_add_series(data = wykres$cloudcover[4550:4600], color = "#1A237E",name = "cloudcover")  %>% 
+
+   hc_yAxis(title = list(text = "Energia"))%>% 
+   hc_xAxis(categories = wykres$data)
+  
+
+
+hc
+
+
+```
+Można zauważyć, że im większe zachmurzenie tym mniejsze wytwarzanie energii.
+
+
+
+
+
+
+#Analiza wpływów PCNM na wytwarzanie energii
+W ramach dokładnej analizy porównawczej wszystkie 15 pcnm przedstawiono na jednym wykresie. Wystarczy "odklikać" w legendzie.
+```{r pcnm, echo=FALSE}
+library("highcharter")
+library(dplyr)
+dane <- group_by(dane,data)
+hc <- highchart() %>% 
+  hc_title(text = "Wykres pcnm") %>% 
+  hc_add_series(name = "kwh",data = dane$kwh[1100:1200],color = "#f42c79",type = "column") %>% 
+  hc_add_series(data = dane$pcnm1[1100:1200],name = "pcnm1",color = "#b4baea")  %>% 
+    hc_add_series(data = dane$pcnm2[1100:1200],name = "pcnm2",color = "#a2a9e8")  %>% 
+    hc_add_series(data = dane$pcnm3[1100:1200],name = "pcnm3",color = "#97a0ed")  %>% 
+    hc_add_series(data = dane$pcnm4[1100:1200],name = "pcnm4",color = "#8691ef")  %>% 
+    hc_add_series(data = dane$pcnm5[1100:1200],name = "pcnm5",color = "#7381f4")  %>% 
+    hc_add_series(data = dane$pcnm6[1100:1200],name = "pcnm6",color = "#5e6ff2")  %>% 
+    hc_add_series(data = dane$pcnm7[1100:1200],name = "pcnm7",color = "#4256f4")  %>% 
+    hc_add_series(data = dane$pcnm8[1100:1200],name = "pcnm8",color = "#1631ff")  %>% 
+    hc_add_series(data = dane$pcnm9[1100:1200],name = "pcnm9",color = "#0a21d1")  %>% 
+    hc_add_series(data = dane$pcnm10[1100:1200],name = "pcnm10",color = "#0518aa")  %>% 
+    hc_add_series(data = dane$pcnm11[1100:1200],name = "pcnm11",color = "#021182")  %>% 
+    hc_add_series(data = dane$pcnm12[1100:1200],name = "pcnm12",color = "#020e6b") %>% 
+    hc_add_series(data = dane$pcnm13[1100:1200],name = "pcnm13",color = "#010947")  %>% 
+    hc_add_series(data = dane$pcnm14[1100:1200],name = "pcnm14",color = "#010733")  %>% 
+    hc_add_series(data = dane$pcnm15[1100:1200],name = "pcnm15",color = "#00020f")%>% 
+     hc_yAxis(title = list(text = "Energia"))%>% 
  hc_xAxis(categories = dane$data)
 
 
@@ -406,11 +544,10 @@ hc
 
 
 ```
+Nie zauważono dużego wpływu wartości na wytwarzanie energii. Jednakże odkryto podobieństwo pomiędzy pcnm12 i pcnm14 oraz pcnm9 i pcnm10.
 
 
 
-
-# Interaktywny wykres prezentującą zmianę wytwarzanej energii w czasie i przestrzeni
 
 #Sekcję próbującą stworzyć regresor przewidujący wytwarzaną energię przez każdy panel w ujęciu godzinowym (w tej sekcji należy wykorzystać wiedzę z pozostałych punktów oraz wykonać dodatkowe czynności, które mogą poprawić trafność predykcji); dobór parametrów modelu oraz oszacowanie jego skuteczności powinny zostać wykonane za pomocą techniki podziału zbioru na dane uczące, walidujące i testowe (uwaga na czas!); trafność regresji powinna zostać oszacowana na podstawie miary RMSE.
 ```{r zbiortestowy,echo=FALSE}
