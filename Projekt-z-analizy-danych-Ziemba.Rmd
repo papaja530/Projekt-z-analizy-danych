@@ -28,7 +28,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ##Kod pokazujący wykorzystane biblioteki
-```{r biblio, message=FALSE}
+```{r biblio, message=FALSE, warning=FALSE}
 library('knitr')
 library(ggplot2)
 library(dplyr)
@@ -52,11 +52,10 @@ dane <- data.frame(ladujdane)
 
 
 ## Kod przetwarzający brakujące dane
-W ramach kompletacji zbioru danych brakujące warotości uzupełniono na podstawie średniej z dostępnych danych. W niektórych atrubutach zostawiono brakujące wartości m.in. lat, lon, idmodel, day, data.
+W ramach kompletacji zbioru danych brakujące warotości uzupełniono na podstawie średniej z dostępnych danych. W niektórych atrubutach zostawiono brakujące wartości m.in. lat, lon, idmodel, day, ora(w nocy), data, kwh(awaria czujnika).
 ```{r przetwarzanie, cache=TRUE}
 
-srednia = mean(dane$kwh)
-dane<-mutate(dane,kwh = ifelse(kwh == 0, srednia, kwh))
+
 
 srednia = mean(dane$irri_pvgis_mod)
 dane<-mutate(dane,irri_pvgis_mod = ifelse(irri_pvgis_mod == 0, srednia, irri_pvgis_mod))
@@ -115,6 +114,8 @@ dane<-mutate(dane,altitudei= ifelse(altitudei == 0, srednia, altitudei))
 srednia = mean(dane$altitude)
 dane<-mutate(dane,altitude= ifelse(altitude== 0, srednia, altitude))
 
+
+
 srednia = mean(dane$dist)
 dane<-mutate(dane,dist= ifelse(dist == 0, srednia, dist))
 
@@ -166,12 +167,12 @@ summary(dane)
 
 
 
-##Wygląd zbioru danych oraz codebook
+##Wygląd zbioru danych 
 ```{r echo=FALSE}
 
 dane
 ```
- Idsito - id panelu, day - dzień, cloudcover - zachmurzenie, ora - godzina, anno - rok, lat, lon - współrzędne geograficzne, windspeed - prędkość wiatru, pressure - ciśnienie, humidity - wilgotność, azimuth - azymut.
+
 
 
 #Współrzędne geograficzne paneli
@@ -228,6 +229,7 @@ hcmap() %>%
 
 ```
 
+
 Obszar czujników zaznaczono na mapie względem współrzędnych geograficznych.
 ```{r echo=FALSE}
 library(png)
@@ -247,7 +249,7 @@ unique(dane$idsito)
 
 
 
-# Wykresy prezentującą zmianę wytwarzanej energii w czasie i przestrzeni oraz szczegółowa analiza wartości atrybutów
+# Wykresy prezentujące zmianę wytwarzanej energii w czasie i przestrzeni oraz szczegółowa analiza wartości atrybutów
 
 ##Wykres słupkowy wytwarzanej energii kwh w ciągu lat
 ```{r kwhhwykres, echo=FALSE}
@@ -283,7 +285,7 @@ hc_yAxis(title = list(text = "Energia"))%>%
 hc %>%  hc_add_theme(hc_theme_tufte2())
 
 ```
-Można zauważyć fakt, że ciągu nocy wytwarzania energii jest znacznie mniej niż podczas dnia(słońce nie świeci).
+Można zauważyć fakt, że ciągu nocy nie jest wytwrzana duża ilość energi(słońce nie świeci) w porównaniu z dniem.
 
 
 ##Wykres słupkowy wytwarznej energii kwh według paneli
@@ -344,7 +346,7 @@ hc <- highchart() %>%
 hc
 
 ```
-Można zauważyć, że wykres posiada już więcej danych niż poprzednie, dla każdej godziny zobrazowano wytwarzanie energii dla poszczególnych paneli.
+Można zauważyć, że wykres posiada już więcej danych niż poprzednie, dla każdej godziny zobrazowano wytwarzanie energii dla poszczególnych paneli. Również w każdym panelu najwięcej energi produkowane jest podczas dnia.
 
 
 ##Wykres słupkowy wytwarznej energii kwh według paneli dniowo
@@ -384,6 +386,12 @@ hc <- highchart() %>%
 hc %>%  hc_add_theme(hc_theme_tufte2())
 
 ```
+
+
+
+
+
+
 
 #Korelacja pomiędzy zmiennymi
 W ramach przejrzystości i dokładnej analizy danych wykresy utworzono po 100,200,1000 rekordów danych.
@@ -552,58 +560,44 @@ Nie zauważono dużego wpływu wartości na wytwarzanie energii. Jednakże odkry
 
 
 
-#Regresor przewidujący wytwarzaną energię przez każdy panel w ujęciu godzinowym (w tej sekcji należy wykorzystać wiedzę z pozostałych punktów oraz wykonać dodatkowe czynności, które mogą poprawić trafność predykcji); dobór parametrów modelu oraz oszacowanie jego skuteczności powinny zostać wykonane za pomocą techniki podziału zbioru na dane uczące, walidujące i testowe (uwaga na czas!); trafność regresji powinna zostać oszacowana na podstawie miary RMSE.
+#Regresor przewidujący wytwarzaną energię przez każdy panel w ujęciu godzinowym, dobór parametrów modelu oraz oszacowanie jego skuteczności powinny zostać wykonane za pomocą techniki podziału zbioru na dane uczące, walidujące i testowe, trafność regresji miara RMSE.
 
 ##Podział zbioru
-```{r zbiortestowy, echo=FALSE, message=FALSE}
+```{r zbiortestowy, echo=TRUE, message=FALSE, warning=FALSE}
 library(caret)
 library(dplyr)
-zbior<-summarize(group_by(dane,ora, idsito), energia=sum(kwh,na.rm=TRUE))
-set.seed(23)
-inTraining <- 
-    createDataPartition(
-        y = zbior$energia,
-        p = .75,
-        list = FALSE)
 
-training <- zbior[ inTraining,]
-testing  <- zbior[-inTraining,]
-
-training
+trainPart <- createDataPartition(
+  y = dane$idsito,
+  p = .75,
+  list = FALSE
+)
+ 
+training <- dane[trainPart,];
+testing <- dane[-trainPart,];
 ```
 ##Uczenie
-```{r uczenie, echo=FALSE, message=FALSE, warning=FALSE}
+```{r uczenie, echo=TRUE, message=FALSE, warning=FALSE}
 ctrl <- trainControl(
     method = "repeatedcv",
-    number = 15,
-    repeats = 3)
-set.seed(23)
-fit <- train(energia~ .,
-             data = training,
-             method = "rf",
-             trControl = ctrl,
-             ntree = 10)
-
+    number = 3,
+    repeats = 6);
+ 
+set.seed(15)
+fit <- train(kwh ~ idsito,
+              data = training,
+              method = "rf",
+              trControl = ctrl,
+             ntree=15);
 fit
+```
+
+##Predykcja oraz miara RMSE
+```{r predykcja, echo=TRUE, message=FALSE}
+
+rfClasses <- predict(fit, newdata = testing)
+
+
 
 ```
 
-##Predykcja
-```{r predykcja, echo=FALSE, message=FALSE}
-
-rfClasses <- predict(fit, testing)
-RMSE <- sqrt(sum((rfClasses  - testing$energia)^2)/length(rfClasses ))
-
-
-rfClasses
-
-```
-
-##Miara RMSE
-```{r rmse, echo=FALSE, message=FALSE}
-
-RMSE <- sqrt(sum((rfClasses  - testing$energia)^2)/length(rfClasses ))
-
-RMSE
-
-```
