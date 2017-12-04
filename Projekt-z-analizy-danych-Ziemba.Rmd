@@ -19,8 +19,7 @@ editor_options:
 
 
 #Podsumowanie analizy
-Lalalala
-
+Analiza przebiegła sprawnie bez większych problemów, jedynym ważnym problemem było zużycie pamięciowo-czasowe. Niejednokrotnie nastała potrzeba ponownego uruchomienia komputera. Istnieje dużo atrybutów wpływających na wytworzenie energii poprzez daną jednostkę fotowoltaiczną.
 
 ```{r setup, include=FALSE,echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -39,6 +38,7 @@ library("highcharter")
 library(png)
 library(grid)
 library(purrr)
+library(caret)
 ```
 
 
@@ -166,11 +166,14 @@ summary(dane)
 
 
 
-##Wygląd zbioru danych
+##Wygląd zbioru danych oraz codebook
 ```{r echo=FALSE}
 
 dane
 ```
+ Idsito - id panelu, day - dzień, cloudcover - zachmurzenie, ora - godzina, anno - rok, lat, lon - współrzędne geograficzne, windspeed - prędkość wiatru, pressure - ciśnienie, humidity - wilgotność, azimuth - azymut.
+
+
 #Współrzędne geograficzne paneli
 Panele fotowoltaiczne współrzędne geograficzne lokazlizacje:
 ```{r wspolrz,echo=FALSE}
@@ -549,21 +552,58 @@ Nie zauważono dużego wpływu wartości na wytwarzanie energii. Jednakże odkry
 
 
 
-#Sekcję próbującą stworzyć regresor przewidujący wytwarzaną energię przez każdy panel w ujęciu godzinowym (w tej sekcji należy wykorzystać wiedzę z pozostałych punktów oraz wykonać dodatkowe czynności, które mogą poprawić trafność predykcji); dobór parametrów modelu oraz oszacowanie jego skuteczności powinny zostać wykonane za pomocą techniki podziału zbioru na dane uczące, walidujące i testowe (uwaga na czas!); trafność regresji powinna zostać oszacowana na podstawie miary RMSE.
-```{r zbiortestowy,echo=FALSE}
+#Regresor przewidujący wytwarzaną energię przez każdy panel w ujęciu godzinowym (w tej sekcji należy wykorzystać wiedzę z pozostałych punktów oraz wykonać dodatkowe czynności, które mogą poprawić trafność predykcji); dobór parametrów modelu oraz oszacowanie jego skuteczności powinny zostać wykonane za pomocą techniki podziału zbioru na dane uczące, walidujące i testowe (uwaga na czas!); trafność regresji powinna zostać oszacowana na podstawie miary RMSE.
+
+##Podział zbioru
+```{r zbiortestowy, echo=FALSE, message=FALSE}
+library(caret)
+library(dplyr)
+zbior<-summarize(group_by(dane,ora, idsito), energia=sum(kwh,na.rm=TRUE))
+set.seed(23)
+inTraining <- 
+    createDataPartition(
+        y = zbior$energia,
+        p = .75,
+        list = FALSE)
+
+training <- zbior[ inTraining,]
+testing  <- zbior[-inTraining,]
+
+training
+```
+##Uczenie
+```{r uczenie, echo=FALSE, message=FALSE, warning=FALSE}
+ctrl <- trainControl(
+    method = "repeatedcv",
+    number = 15,
+    repeats = 3)
+set.seed(23)
+fit <- train(energia~ .,
+             data = training,
+             method = "rf",
+             trControl = ctrl,
+             ntree = 10)
+
+fit
 
 ```
-Uczenie
-```{r uczenie,echo=FALSE}
+
+##Predykcja
+```{r predykcja, echo=FALSE, message=FALSE}
+
+rfClasses <- predict(fit, testing)
+RMSE <- sqrt(sum((rfClasses  - testing$energia)^2)/length(rfClasses ))
 
 
+rfClasses
 
 ```
 
-Predykcja
-```{r predykcja,echo=FALSE}
+##Miara RMSE
+```{r rmse, echo=FALSE, message=FALSE}
 
+RMSE <- sqrt(sum((rfClasses  - testing$energia)^2)/length(rfClasses ))
 
-
+RMSE
 
 ```
